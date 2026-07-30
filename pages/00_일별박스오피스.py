@@ -5,15 +5,23 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 st.set_page_config(page_title="박스오피스 대시보드", layout="wide")
-st.title("🎬 어제의 박스오피스")
+st.title("🎬 박스오피스 대시보드")
 
 # 비밀 금고에서 인증키 꺼내기 (코드에는 키를 적지 않는다)
 KOBIS_KEY = st.secrets["KOBIS_KEY"]
 
-# 한국 시간 기준 어제 날짜를 여덟 자리로 (배포 서버 시계는 외국 기준일 수 있다)
-yesterday = datetime.now(ZoneInfo("Asia/Seoul")) - timedelta(days=1)
-target_dt = yesterday.strftime("%Y%m%d")
-st.caption(f"조회 기준일(어제): {yesterday.strftime('%Y-%m-%d')}")
+# 한국 시간 기준 오늘/어제 날짜 (배포 서버 시계는 외국 기준일 수 있다)
+today_kst = datetime.now(ZoneInfo("Asia/Seoul")).date()
+yesterday_kst = today_kst - timedelta(days=1)
+
+# 달력에서 날짜 선택 (가장 늦게 고를 수 있는 날짜는 어제까지)
+selected_date = st.date_input(
+    "조회할 날짜를 선택하세요",
+    value=yesterday_kst,
+    max_value=yesterday_kst,
+)
+target_dt = selected_date.strftime("%Y%m%d")
+st.caption(f"조회 기준일: {selected_date.strftime('%Y-%m-%d')}")
 
 url = "https://www.kobis.or.kr/kobisopenapi/webservice/rest/boxoffice/searchDailyBoxOfficeList.json"
 res = requests.get(url, params={"key": KOBIS_KEY, "targetDt": target_dt}, timeout=10)
@@ -40,19 +48,27 @@ df = pd.DataFrame(box_list)
 for col in ["rank", "audiCnt", "audiAcc", "scrnCnt", "showCnt"]:
     df[col] = pd.to_numeric(df[col])
 
+# 누적 관객 300만 이상이면 영화명 옆에 웃는 표시
+HIT_THRESHOLD = 3_000_000
+df["movieNm_표시"] = df.apply(
+    lambda r: f"{r['movieNm']} 😊" if r["audiAcc"] >= HIT_THRESHOLD else r["movieNm"],
+    axis=1,
+)
+
 # 1위 영화 지표 카드 세 장
 top = df.sort_values("rank").iloc[0]
 c1, c2, c3 = st.columns(3)
-c1.metric("어제 1위", top["movieNm"])
-c2.metric("어제 관객수", f"{top['audiCnt']:,}명")
+c1.metric("1위", top["movieNm_표시"])
+c2.metric("관객수", f"{top['audiCnt']:,}명")
 c3.metric("누적 관객", f"{top['audiAcc']:,}명")
 
 # 표를 한국어 열 이름으로 정리
-table = df[["rank", "movieNm", "openDt", "audiCnt", "audiAcc", "scrnCnt"]].copy()
+table = df[["rank", "movieNm_표시", "openDt", "audiCnt", "audiAcc", "scrnCnt"]].copy()
 table.columns = ["순위", "영화명", "개봉일", "관객수", "누적관객", "스크린수"]
 table = table.sort_values("순위").reset_index(drop=True)
 
 st.subheader("📋 박스오피스 TOP 10")
+st.caption(f"😊 표시 = 누적 관객 {HIT_THRESHOLD:,}명 이상")
 st.dataframe(table)
 
 st.subheader("📈 관객수 상위 5편")
