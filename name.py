@@ -8,7 +8,7 @@ st.set_page_config(page_title="지방 소멸위기 지도", layout="wide")
 st.title("🗺️ 지방 소멸위기 지도")
 st.caption(
     "시군구별 소멸위기지수 = 63세 이상 인구 ÷ 19~45세 인구 "
-    "(행정안전부 주민등록 인구, 지수 3.5 이상이면 소멸위기 지역으로 분류)"
+    "(행정안전부 주민등록 인구, 지수 3 이상이면 소멸위기 지역으로 분류)"
 )
 
 POP_URL = "https://raw.githubusercontent.com/greatsong/modudata/main/data/population_yearly.csv.gz"
