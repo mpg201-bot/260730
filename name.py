@@ -14,8 +14,8 @@ st.caption(
 POP_URL = "https://raw.githubusercontent.com/greatsong/modudata/main/data/population_yearly.csv.gz"
 GEO_URL = "https://raw.githubusercontent.com/greatsong/modudata/main/data/boundaries/sigungu_kr.geojson"
 
-# 소멸위기 판정 기준: 63세 이상 인구 : 19~45세 인구 = 3.5 : 1
-RISK_THRESHOLD = 3.5
+# 소멸위기 판정 기준: 63세 이상 인구 : 19~45세 인구 = 3 : 1
+RISK_THRESHOLD = 3
 
 
 @st.cache_data(show_spinner="인구 데이터를 불러오는 중입니다...")
@@ -75,14 +75,14 @@ names = pd.DataFrame([
 ])
 merged = grouped.merge(names, on="시군구코드", how="left")
 
-# 7. 5단계 색 구간 (지수 3.5를 명확한 경계선으로 포함)
-BINS = [0, 1.5, 2.5, 3.5, 5, 100]
-LABELS = ["1.5 미만(안정)", "1.5~2.5", "2.5~3.5", "3.5~5(소멸위기)", "5 이상(고위험)"]
+# 7. 5단계 색 구간 (지수 3을 명확한 경계선으로 포함)
+BINS = [0, 1.5, 2, 3, 5, 100]
+LABELS = ["1.5 미만(안정)", "1.5~2", "2~3", "3~5(소멸위기)", "5 이상(고위험)"]
 COLORS = {
     "1.5 미만(안정)": "#fff7bc",
-    "1.5~2.5": "#fec44f",
-    "2.5~3.5": "#fe9929",
-    "3.5~5(소멸위기)": "#d95f0e",
+    "1.5~2": "#fec44f",
+    "2~3": "#fe9929",
+    "3~5(소멸위기)": "#d95f0e",
     "5 이상(고위험)": "#993404",
 }
 merged["단계"] = pd.cut(merged["소멸위기지수"], bins=BINS, labels=LABELS, right=False)
@@ -123,7 +123,21 @@ fig.update_layout(
 )
 st.plotly_chart(fig, width="stretch")
 
-# 10. 소멸위기 지역 전체 목록 + 위기지수 상위 10곳
+# 10. 시도별 소멸위기 지역 개수 집계
+st.subheader("📊 시도별 소멸위기 지역 개수")
+province_summary = (
+    merged.groupby("시도")
+    .agg(전체시군구수=("시군구", "count"), 소멸위기지역수=("소멸위기여부", "sum"))
+    .reset_index()
+)
+province_summary["소멸위기지역수"] = province_summary["소멸위기지역수"].astype(int)
+province_summary["소멸위기비율(%)"] = (
+    province_summary["소멸위기지역수"] / province_summary["전체시군구수"] * 100
+).round(1)
+province_summary = province_summary.sort_values("소멸위기지역수", ascending=False).reset_index(drop=True)
+st.dataframe(province_summary, width="stretch")
+
+# 11. 소멸위기 지역 전체 목록 + 위기지수 상위 10곳
 st.subheader(f"🚨 소멸위기 지역 전체 목록 (지수 {RISK_THRESHOLD} 이상, {risk_count}개)")
 risk_table = merged[merged["소멸위기여부"] == True][
     ["시도", "시군구", "소멸위기지수", "고령인구_63이상", "핵심인구_19_45"]
