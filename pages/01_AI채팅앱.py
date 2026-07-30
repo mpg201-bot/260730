@@ -38,6 +38,9 @@ if user_input:
 
     # AI 답 받아오기 (실패하면 빨간 오류 화면 대신 안내 문구)
     with st.chat_message("assistant"):
+        # 답변이 도착하기 전까지 보여줄 대기 안내 문구
+        waiting_box = st.empty()
+        waiting_box.caption("⏳ 전송을 연타하지 말고, 답변이 나올 때까지 기다려주세요.")
         try:
             stream = client.chat.completions.create(
                 model="solar-open2",                 # 모델 이름은 그대로 유지
@@ -49,7 +52,10 @@ if user_input:
                 chunk.choices[0].delta.content or ""
                 for chunk in stream if chunk.choices
             )
+            # 답변이 나오기 시작했으므로 대기 안내 문구는 지운다
+            waiting_box.empty()
             # AI 답도 기록에 저장 (다음 질문에 이어서 사용)
             st.session_state.messages.append({"role": "assistant", "content": answer})
         except Exception:
+            waiting_box.empty()
             st.error("응답을 받지 못했습니다. 잠시 후 다시 보내 주세요.")
